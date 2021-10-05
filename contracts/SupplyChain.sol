@@ -90,7 +90,7 @@ contract SupplyChain {
   // modifier forSale
   modifier forSale(uint _sku){
     require(items[_sku].state == State.ForSale, "Item is no salleble");
-    require(items[_sku].seller,"We need a seller");
+    //require(items[_sku].seller,"We need a seller");
     _;
   }
   // modifier sold(uint _sku) 
