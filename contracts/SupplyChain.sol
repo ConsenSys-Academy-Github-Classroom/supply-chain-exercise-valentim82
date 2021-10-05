@@ -4,27 +4,49 @@ pragma solidity >=0.5.16 <0.9.0;
 contract SupplyChain {
 
   // <owner>
+  address public owner = msg.sender;
 
   // <skuCount>
+  uint public skuCount = 0;
 
   // <items mapping>
+  
+  mapping (uint => Item) public  items;
 
   // <enum State: ForSale, Sold, Shipped, Received>
+  enum State {
+    ForSale,
+    Sold,
+    Shipped,
+    Received
+  }
+
 
   // <struct Item: name, sku, price, state, seller, and buyer>
+
+  struct Item {
+    string name;
+    uint sku;
+    uint price;
+    State state;
+    address payable seller;
+    address payable buyer;
+}
   
   /* 
    * Events
    */
 
   // <LogForSale event: sku arg>
+  event LogForSale(uint skuCount);
 
   // <LogSold event: sku arg>
-
+  event LogSold(uint skuCount);
   // <LogShipped event: sku arg>
+  event LogShipped(uint skuCount);
 
   // <LogReceived event: sku arg>
-
+  event LogReceived(uint skuCount);
 
   /* 
    * Modifiers
@@ -35,12 +57,17 @@ contract SupplyChain {
   // <modifier: isOwner
 
   modifier verifyCaller (address _address) { 
-    // require (msg.sender == _address); 
+    require (msg.sender == _address); 
+    _;
+  }
+
+  modifier verifyIsBuyer (uint _sku) { 
+    require (msg.sender == items[_sku].buyer); 
     _;
   }
 
   modifier paidEnough(uint _price) { 
-    // require(msg.value >= _price); 
+     require(msg.value >= _price); 
     _;
   }
 
@@ -61,9 +88,28 @@ contract SupplyChain {
   // an Item has been added?
 
   // modifier forSale
+  modifier forSale(uint _sku){
+    require(items[_sku].state == State.ForSale, "Item is no salleble");
+    require(items[_sku].seller,"We need a seller");
+    _;
+  }
   // modifier sold(uint _sku) 
-  // modifier shipped(uint _sku) 
-  // modifier received(uint _sku) 
+  modifier sold(uint _sku){
+    require(items[_sku].state == State.Sold, "Item is not sold");
+    _;
+  }
+  
+  // modifier shipped(uint _sku)
+  modifier shipped(uint _sku){
+    require(items[_sku].state == State.Shipped, "Item is not shipped");
+    _;
+  }
+
+  // modifier received(uint _sku)
+  modifier received (uint _sku){
+    require(items[_sku].state == State.Received, "Item is not received");
+    _;
+  } 
 
   constructor() public {
     // 1. Set the owner to the transaction sender
@@ -77,18 +123,18 @@ contract SupplyChain {
     // 4. return true
 
     // hint:
-    // items[skuCount] = Item({
-    //  name: _name, 
-    //  sku: skuCount, 
-    //  price: _price, 
-    //  state: State.ForSale, 
-    //  seller: msg.sender, 
-    //  buyer: address(0)
-    //});
+     items[skuCount] = Item({
+      name: _name, 
+      sku: skuCount, 
+      price: _price, 
+      state: State.ForSale, 
+      seller: msg.sender, 
+      buyer: address(0)
+    });
     //
-    //skuCount = skuCount + 1;
-    // emit LogForSale(skuCount);
-    // return true;
+    skuCount = skuCount + 1;
+    emit LogForSale(skuCount);
+    return true;
   }
 
   // Implement this buyItem function. 
@@ -102,32 +148,58 @@ contract SupplyChain {
   //    - check the value after the function is called to make 
   //      sure the buyer is refunded any excess ether sent. 
   // 6. call the event associated with this function!
-  function buyItem(uint sku) public {}
+  function buyItem(uint sku) payable public forSale(sku) {
+    //3
+    items[sku].buyer = msg.sender;
+    //4
+    items[sku].state = State.Sold;
+    //2
+    items[sku].seller.transfer(items[sku].price);
+    //6
+    emit LogSold(sku);
+
+    
+
+
+
+  }
 
   // 1. Add modifiers to check:
   //    - the item is sold already 
   //    - the person calling this function is the seller. 
   // 2. Change the state of the item to shipped. 
   // 3. call the event associated with this function!
-  function shipItem(uint sku) public {}
+  function shipItem(uint sku) public sold(sku) verifyCaller(items[sku].seller) {
+
+    //2
+    items[sku].state = State.Shipped;
+    //3
+    emit LogShipped(sku);
+
+  }
 
   // 1. Add modifiers to check 
   //    - the item is shipped already 
   //    - the person calling this function is the buyer. 
   // 2. Change the state of the item to received. 
   // 3. Call the event associated with this function!
-  function receiveItem(uint sku) public {}
+  function receiveItem(uint sku) public shipped(sku) verifyIsBuyer(sku){
+    //2
+    items[sku].state = State.Received;
+    //3
+    emit LogReceived(sku);
+  }
 
   // Uncomment the following code block. it is needed to run tests
-  /* function fetchItem(uint _sku) public view */ 
-  /*   returns (string memory name, uint sku, uint price, uint state, address seller, address buyer) */ 
-  /* { */
-  /*   name = items[_sku].name; */
-  /*   sku = items[_sku].sku; */
-  /*   price = items[_sku].price; */
-  /*   state = uint(items[_sku].state); */
-  /*   seller = items[_sku].seller; */
-  /*   buyer = items[_sku].buyer; */
-  /*   return (name, sku, price, state, seller, buyer); */
-  /* } */
+   function fetchItem(uint _sku) public view 
+     returns (string memory name, uint sku, uint price, uint state, address seller, address buyer) 
+   { 
+     name = items[_sku].name; 
+     sku = items[_sku].sku; 
+     price = items[_sku].price; 
+     state = uint(items[_sku].state); 
+     seller = items[_sku].seller; 
+     buyer = items[_sku].buyer; 
+     return (name, sku, price, state, seller, buyer); 
+   } 
 }
